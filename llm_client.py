@@ -38,6 +38,10 @@ def _parse_args(raw: str | dict[str, Any] | None) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+# Google Gemini OpenAI-compatible endpoint (basic SDK only — no agent frameworks)
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
 class OpenAICompatibleClient:
     def __init__(
         self,
@@ -46,6 +50,7 @@ class OpenAICompatibleClient:
         api_key: str | None = None,
         base_url: str | None = None,
         temperature: float = 0.1,
+        api_key_env: str = "OPENAI_API_KEY",
     ) -> None:
         try:
             from openai import OpenAI
@@ -54,9 +59,17 @@ class OpenAICompatibleClient:
                 "openai package is required. Install with: pip install -r requirements.txt"
             ) from exc
 
-        key = api_key or os.getenv("OPENAI_API_KEY")
+        key = (
+            api_key
+            or os.getenv(api_key_env)
+            or os.getenv("OPENAI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
+        )
         if not key:
-            raise LLMError("OPENAI_API_KEY is not set.")
+            raise LLMError(
+                f"{api_key_env} is not set (also checked OPENAI_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY)."
+            )
 
         kwargs: dict[str, Any] = {"api_key": key}
         url = base_url or os.getenv("OPENAI_BASE_URL")
@@ -265,8 +278,18 @@ def create_llm_client(
 
     if provider in {"openai", "openai_compatible"}:
         return OpenAICompatibleClient(model=model, temperature=temp)
+    if provider in {"google", "gemini"}:
+        # Gemini via official OpenAI-compatible API (supports tool/function calling)
+        return OpenAICompatibleClient(
+            model=model or "gemini-3.8-flash",
+            api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
+            base_url=os.getenv("OPENAI_BASE_URL") or GEMINI_OPENAI_BASE_URL,
+            temperature=temp,
+            api_key_env="GOOGLE_API_KEY",
+        )
     if provider == "anthropic":
         return AnthropicClient(model=model, temperature=temp)
     raise LLMError(
-        f"Unsupported LLM_PROVIDER={provider!r}. Use openai, openai_compatible, or anthropic."
+        f"Unsupported LLM_PROVIDER={provider!r}. "
+        "Use openai, openai_compatible, google, gemini, or anthropic."
     )

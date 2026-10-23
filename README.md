@@ -25,7 +25,7 @@ This project implements a custom **Observe → Reason → Select Tool → Execut
 | `agent.py` | CLI entry point (`--repo`, `--output`) |
 | `agent_loop.py` | Explicit LLM ↔ tool control loop |
 | `tools.py` | Inspection tool implementations + tool schemas |
-| `llm_client.py` | Thin OpenAI / Anthropic SDK wrappers |
+| `llm_client.py` | Thin OpenAI / Google Gemini / Anthropic SDK wrappers |
 | `prompts.py` | System prompt and audit instructions |
 | `report.py` | JSON report validation & serialization |
 | `repo_manager.py` | URL normalization, shallow clone, cleanup |
@@ -51,7 +51,7 @@ This project implements a custom **Observe → Reason → Select Tool → Execut
        │ reason / select tool
        ▼
 ┌─────────────┐
-│ llm_client  │  (OpenAI or Anthropic SDK only)
+│ llm_client  │  (OpenAI, Google Gemini, or Anthropic SDK)
 └─────────────┘
        │
        ▼
@@ -78,6 +78,7 @@ Precision-oriented rules are encoded in the system prompt: do not treat absent o
 - Python **3.10+**
 - **Git** on `PATH` (used to shallow-clone public repositories)
 - An LLM API key:
+  - **Google Gemini** (`GOOGLE_API_KEY` / `GEMINI_API_KEY`) — recommended default, or
   - OpenAI (`OPENAI_API_KEY`), or
   - Anthropic (`ANTHROPIC_API_KEY`), or
   - Any OpenAI-compatible endpoint via `OPENAI_BASE_URL`
@@ -103,6 +104,16 @@ cp .env.example .env
 ```
 
 Edit `.env` and set your credentials (never commit `.env`):
+
+```env
+LLM_PROVIDER=google
+LLM_MODEL=gemini-3.8-flash
+GOOGLE_API_KEY=your-google-api-key-here
+```
+
+Create a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). The project linked to the key must be allowed to call `generateContent` (a key that can only list models is not enough).
+
+OpenAI example:
 
 ```env
 LLM_PROVIDER=openai
