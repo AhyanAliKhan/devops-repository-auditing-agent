@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         max_steps = args.max_steps or int(os.getenv("AGENT_MAX_STEPS", "30"))
 
         if args.verbose:
-            print(f"[agent] cloning {canonical} …", file=sys.stderr)
+            print(f"[agent] cloning {canonical} ...", file=sys.stderr)
 
         work_root = Path(args.work_dir) if args.work_dir else None
         cloned = clone_repository(
@@ -98,6 +98,14 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.verbose:
             print(f"[agent] clone ready at {cloned.path}", file=sys.stderr)
+
+        # Avoid Windows cp1252 crashes if the model returns Unicode arrows/symbols
+        if hasattr(sys.stdout, "reconfigure"):
+            try:
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
         llm = create_llm_client()
         tools = ToolRegistry(cloned.path, tool_timeout_seconds=tool_timeout)

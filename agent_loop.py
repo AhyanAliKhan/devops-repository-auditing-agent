@@ -74,7 +74,7 @@ class DevOpsAuditingAgent:
 
         for step in range(1, self.max_steps + 1):
             if self.verbose:
-                print(f"[agent] step {step}/{self.max_steps}: reasoning…")
+                print(f"[agent] step {step}/{self.max_steps}: reasoning...")
 
             response = self.llm.chat(messages, TOOL_DEFINITIONS)
             messages.append(response.raw_assistant_message)

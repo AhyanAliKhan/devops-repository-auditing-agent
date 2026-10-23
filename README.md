@@ -107,7 +107,7 @@ Edit `.env` and set your credentials (never commit `.env`):
 
 ```env
 LLM_PROVIDER=google
-LLM_MODEL=gemini-3.8-flash
+LLM_MODEL=gemini-3.5-flash-lite
 GOOGLE_API_KEY=your-google-api-key-here
 ```
 

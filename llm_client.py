@@ -71,29 +71,62 @@ class OpenAICompatibleClient:
                 f"{api_key_env} is not set (also checked OPENAI_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY)."
             )
 
-        kwargs: dict[str, Any] = {"api_key": key}
+        kwargs: dict[str, Any] = {"api_key": key, "max_retries": 0}
         url = base_url or os.getenv("OPENAI_BASE_URL")
         if url:
             kwargs["base_url"] = url
         self._client = OpenAI(**kwargs)
         self.model = model
         self.temperature = temperature
+        self.min_request_interval = float(os.getenv("LLM_MIN_REQUEST_INTERVAL", "0"))
+        self._last_request_at = 0.0
 
     def chat(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> LLMResponse:
-        try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                temperature=self.temperature,
-            )
-        except Exception as exc:  # noqa: BLE001 - surface provider errors cleanly
-            raise LLMError(f"OpenAI API error: {exc}") from exc
+        import time
+
+        last_exc: Exception | None = None
+        response = None
+        # Free-tier Gemini often allows only ~5 RPM; throttle + retry on 429/503.
+        for attempt in range(8):
+            if self.min_request_interval > 0:
+                elapsed = time.monotonic() - self._last_request_at
+                if elapsed < self.min_request_interval:
+                    time.sleep(self.min_request_interval - elapsed)
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    temperature=self.temperature,
+                )
+                self._last_request_at = time.monotonic()
+                break
+            except Exception as exc:  # noqa: BLE001 - surface provider errors cleanly
+                last_exc = exc
+                text = str(exc)
+                retryable = any(
+                    token in text
+                    for token in (
+                        "429",
+                        "RESOURCE_EXHAUSTED",
+                        "503",
+                        "UNAVAILABLE",
+                        "high demand",
+                        "rate",
+                    )
+                )
+                if retryable and attempt < 7:
+                    delay = min(60.0, 8.0 * (attempt + 1))
+                    time.sleep(delay)
+                    continue
+                raise LLMError(f"OpenAI API error: {exc}") from exc
+        else:
+            raise LLMError(f"OpenAI API error after retries: {last_exc}") from last_exc
 
         message = response.choices[0].message
         tool_calls: list[ToolCall] = []
@@ -111,8 +144,9 @@ class OpenAICompatibleClient:
             "content": message.content,
         }
         if message.tool_calls:
-            assistant_msg["tool_calls"] = [
-                {
+            serialized_calls: list[dict[str, Any]] = []
+            for tc in message.tool_calls:
+                entry: dict[str, Any] = {
                     "id": tc.id,
                     "type": "function",
                     "function": {
@@ -120,8 +154,17 @@ class OpenAICompatibleClient:
                         "arguments": tc.function.arguments or "{}",
                     },
                 }
-                for tc in message.tool_calls
-            ]
+                # Gemini (google provider) requires thought_signature round-trip
+                extra = getattr(tc, "extra_content", None)
+                if extra is None and hasattr(tc, "model_extra"):
+                    extra = (tc.model_extra or {}).get("extra_content")
+                if extra is None:
+                    dumped = tc.model_dump() if hasattr(tc, "model_dump") else {}
+                    extra = dumped.get("extra_content")
+                if extra:
+                    entry["extra_content"] = extra
+                serialized_calls.append(entry)
+            assistant_msg["tool_calls"] = serialized_calls
 
         return LLMResponse(
             content=message.content,
@@ -281,7 +324,7 @@ def create_llm_client(
     if provider in {"google", "gemini"}:
         # Gemini via official OpenAI-compatible API (supports tool/function calling)
         return OpenAICompatibleClient(
-            model=model or "gemini-3.8-flash",
+            model=model or "gemini-3.5-flash-lite",
             api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
             base_url=os.getenv("OPENAI_BASE_URL") or GEMINI_OPENAI_BASE_URL,
             temperature=temp,
