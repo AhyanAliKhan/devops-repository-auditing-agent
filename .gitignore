@@ -1,0 +1,46 @@
+# Environment and secrets
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Agent working directories
+.work/
+.tmp/
+cloned_repos/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local artifacts
+_assignment_text.txt
+*.log
+report.json
+reports/
+Assignment_2_DevOps_Repository_Auditing_Agent_Updated.pdf

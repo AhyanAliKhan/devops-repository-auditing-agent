@@ -1,0 +1,45 @@
+{
+  "repository": "https://github.com/example/demo-project",
+  "violations": [
+    {
+      "rule_id": "SEC-001",
+      "category": "security",
+      "severity": "critical",
+      "file": "config.py",
+      "line": 17,
+      "description": "Hardcoded API credential",
+      "evidence": "Credential assigned directly in source code",
+      "recommendation": "Use a secrets manager or environment variable"
+    },
+    {
+      "rule_id": "CI-001",
+      "category": "ci_cd",
+      "severity": "high",
+      "file": ".github/workflows/ci.yml",
+      "line": 3,
+      "description": "GitHub Actions workflow grants overly broad permissions",
+      "evidence": "Workflow sets permissions: write-all instead of least privilege",
+      "recommendation": "Declare minimal permissions per job (contents: read, etc.)"
+    },
+    {
+      "rule_id": "DEP-001",
+      "category": "dependency_management",
+      "severity": "medium",
+      "file": "requirements.txt",
+      "line": null,
+      "description": "Dependencies are unpinned with no lockfile",
+      "evidence": "requirements.txt lists bare package names and no poetry.lock/uv.lock/Pipfile.lock is present",
+      "recommendation": "Pin versions or commit a lockfile appropriate to the package manager"
+    },
+    {
+      "rule_id": "TEST-001",
+      "category": "testing",
+      "severity": "medium",
+      "file": null,
+      "line": null,
+      "description": "No automated tests or CI test execution found",
+      "evidence": "No tests/ directory or test_*.py files; CI workflow only echoes success",
+      "recommendation": "Add unit tests and run them as a required CI job"
+    }
+  ]
+}
